@@ -1,8 +1,8 @@
-# QR for Networkers
+# QR for networker
 
 Express our field with a QR code :)
 
-[Open QR for network](https://gahyoun.github.io/qr-for-networkers/)
+[Open QR for networker](https://gahyoun.github.io/qr-for-networkers/)
 
 Turn a URL into a scannable QR code with rounded nodes and links between adjacent dark modules. Choose orthogonal neighbors, diagonal neighbors, or both. Pick a preset or enter up to eight HEX or RGB colors. You can also open `index.html` directly in a browser and use the generator offline.
 

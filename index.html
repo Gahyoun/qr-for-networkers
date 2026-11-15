@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  QR for Networkers. Copyright (C) 2026 Gahyoun Gim.
+  QR for networker. Copyright (C) 2026 Gahyoun Gim.
   The original application code is available under the GNU General Public
   License, version 3 or any later version (SPDX: GPL-3.0-or-later).
   It comes without warranty. See LICENSE or https://www.gnu.org/licenses/.
@@ -11,7 +11,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Express our field with a QR code :)">
-  <title>QR for network</title>
+  <title>QR for networker</title>
   <style>
     :root {
       color-scheme: light;
@@ -233,7 +233,7 @@
     <div class="shell">
       <div class="wordmark">
         <canvas id="mark" class="mark" width="48" height="48" aria-hidden="true"></canvas>
-        QR for Networkers
+        QR for networker
       </div>
     </div>
   </header>
@@ -241,7 +241,7 @@
   <main class="shell">
     <section class="hero" aria-labelledby="page-title">
       <canvas class="hero-art" id="hero-art" width="1040" height="420" aria-hidden="true"></canvas>
-      <h1 id="page-title">QR for <span>network</span></h1>
+      <h1 id="page-title">QR for <span>networker</span></h1>
       <p lang="en">Express our field with a QR code :)</p>
     </section>
 
@@ -3239,7 +3239,7 @@ var qrcode = function() {
         const svg = [
           '<?xml version="1.0" encoding="UTF-8"?>',
           `<svg xmlns="http://www.w3.org/2000/svg" width="${exportSize}" height="${exportSize}" viewBox="0 0 ${side} ${side}">`,
-          '<title>QR for network</title>'
+          '<title>QR for networker</title>'
         ];
         for (const { name, shapes } of layers) {
           const id = name.toLowerCase().replaceAll(' ', '-');
