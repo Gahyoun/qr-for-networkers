@@ -1,6 +1,6 @@
 # QR for Networkers
 
-Express your field with a QR code :)
+Express our field with a QR code :)
 
 [Open QR for network](https://gahyoun.github.io/qr-for-networkers/)
 
@@ -8,17 +8,17 @@ Turn a URL into a scannable QR code with rounded nodes and links between adjacen
 
 ## Sample the links
 
-Open **링크 샘플링** (Link sampling) to choose a model.
+Open **Link sampling** to choose a model.
 
 | Model | How it chooses links |
 | --- | --- |
-| Preserve connectivity | Builds a spanning forest for each connected component of the candidate graph, then adds links while limiting crossings and crowding. |
+| Keep connected | Builds a spanning forest for each connected component of the candidate graph, then adds links while limiting crossings and crowding. |
 | Bernoulli | Includes each eligible link independently with probability `p`. The number of selected links can vary between samples. |
 | Fixed count | Draws exactly `k` distinct eligible links without replacement. The available pool sets the maximum. |
 
 The candidate graph comes from the QR matrix and the active neighbor switches. With crossings switched off, Bernoulli and Fixed count use a fixed pool that includes at most one diagonal per grid cell. These two methods can produce disconnected networks.
 
-Use **링크만 다시 뽑기** (Resample links) to draw a new set of edges while keeping the nodes in place. Re-enter a link seed to reproduce the edge set for the same URL, neighbor switches, model, sampling settings, and randomness level. Use **다시 섞기** (Shuffle) to vary both node placement and links.
+Use **Resample links** to draw a new set of edges while keeping the nodes in place. Re-enter a link seed to reproduce the edge set for the same URL, neighbor switches, model, sampling settings, and randomness level. Use **Shuffle** to vary both node placement and links.
 
 ## Export and edit
 

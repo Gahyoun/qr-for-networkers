@@ -6,11 +6,11 @@
   It comes without warranty. See LICENSE or https://www.gnu.org/licenses/.
   The bundled QR encoder retains its MIT notice below.
 -->
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Express your field with a QR code :)">
+  <meta name="description" content="Express our field with a QR code :)">
   <title>QR for network</title>
   <style>
     :root {
@@ -242,120 +242,120 @@
     <section class="hero" aria-labelledby="page-title">
       <canvas class="hero-art" id="hero-art" width="1040" height="420" aria-hidden="true"></canvas>
       <h1 id="page-title">QR for <span>network</span></h1>
-      <p lang="en">Express your field with a QR code :)</p>
+      <p lang="en">Express our field with a QR code :)</p>
     </section>
 
     <div class="workspace">
       <section class="card settings" aria-labelledby="settings-title">
-        <h2 id="settings-title">QR 설정</h2>
+        <h2 id="settings-title">QR settings</h2>
 
         <div class="field">
           <div class="label-row">
-            <label for="url">QR에 담을 링크</label>
-            <a class="open-link" id="open-link" target="_blank" rel="noopener noreferrer" hidden>링크 열기 ↗</a>
+            <label for="url">Destination URL</label>
+            <a class="open-link" id="open-link" target="_blank" rel="noopener noreferrer" hidden>Open link ↗</a>
           </div>
           <textarea id="url" rows="2" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://example.com" aria-describedby="url-error">https://sites.google.com/view/gahyoun-official/main-page</textarea>
           <p class="error" id="url-error" role="status" hidden></p>
         </div>
 
         <fieldset>
-          <legend>노드 연결</legend>
+          <legend>Node connections</legend>
           <label class="option">
             <canvas class="diagram" id="axis-icon" width="48" height="48" aria-hidden="true"></canvas>
-            <span><strong>상하좌우 인접</strong><small>최근접 이웃 · NN</small></span>
+            <span><strong>Orthogonal links</strong><small>Nearest neighbors (NN)</small></span>
             <input class="switch" type="checkbox" role="switch" id="axis" checked>
           </label>
           <label class="option">
             <canvas class="diagram" id="diagonal-icon" width="48" height="48" aria-hidden="true"></canvas>
-            <span><strong>대각선 인접</strong><small>모서리를 맞댄 이웃</small></span>
+            <span><strong>Diagonal links</strong><small>Corner neighbors</small></span>
             <input class="switch" type="checkbox" role="switch" id="diagonal" checked>
           </label>
           <div class="variation">
             <div class="variation-head">
               <div>
-                <label for="variation">무작위성</label>
+                <label for="variation">Randomness</label>
                 <output class="variation-value" for="variation" id="variation-value">70%</output>
               </div>
-              <button class="shuffle" id="shuffle" type="button">다시 섞기</button>
+              <button class="shuffle" id="shuffle" type="button">Shuffle</button>
             </div>
             <input type="range" id="variation" min="0" max="100" value="70">
           </div>
           <details class="edge-settings">
-            <summary>링크 샘플링 <span class="custom-status" id="edge-summary"></span></summary>
+            <summary>Link sampling <span class="custom-status" id="edge-summary"></span></summary>
             <div class="edge-editor">
               <div class="edge-fields">
-                <label class="edge-field" for="edge-model">샘플링 방식
+                <label class="edge-field" for="edge-model">Sampling method
                   <select id="edge-model">
-                    <option value="connected">연결 보존</option>
+                    <option value="connected">Keep connected</option>
                     <option value="bernoulli">Bernoulli</option>
-                    <option value="fixed">고정 링크 수</option>
+                    <option value="fixed">Fixed count</option>
                   </select>
                 </label>
-                <label class="edge-field" for="edge-seed">링크 시드
+                <label class="edge-field" for="edge-seed">Link seed
                   <input type="number" id="edge-seed" min="0" max="4294967295" step="1" value="0" required>
                 </label>
-                <label class="edge-field" id="edge-probability-field" for="edge-probability" hidden>선택 확률 (%)
+                <label class="edge-field" id="edge-probability-field" for="edge-probability" hidden>Probability (%)
                   <input type="number" id="edge-probability" min="0" max="100" step="1" value="65" required>
                 </label>
-                <label class="edge-field" id="edge-sample-field" for="edge-sample" hidden>링크 수
+                <label class="edge-field" id="edge-sample-field" for="edge-sample" hidden>Link count
                   <input type="number" id="edge-sample" min="0" step="1" value="600" required>
                 </label>
               </div>
               <label class="edge-crossing" id="edge-crossing-field" hidden>
-                <input type="checkbox" id="edge-crossing">교차 허용
+                <input type="checkbox" id="edge-crossing">Allow crossings
               </label>
               <div class="edge-actions">
                 <p class="edge-counts" id="edge-counts"></p>
-                <button class="shuffle" id="resample-edges" type="button">링크만 다시 뽑기</button>
+                <button class="shuffle" id="resample-edges" type="button">Resample links</button>
               </div>
             </div>
           </details>
         </fieldset>
 
         <fieldset class="palette">
-          <legend>팔레트</legend>
+          <legend>Palette</legend>
           <div class="palette-choices" id="palette-choices"></div>
           <details class="custom-palette" id="custom-palette">
-            <summary>직접 입력 <span id="custom-status" class="custom-status" role="status" hidden>적용 중</span></summary>
-            <form class="custom-editor" id="custom-editor" aria-label="사용자 팔레트">
-              <label for="palette-input">색상 코드</label>
+            <summary>Custom colors <span id="custom-status" class="custom-status" role="status" hidden>Applied</span></summary>
+            <form class="custom-editor" id="custom-editor" aria-label="Custom palette">
+              <label for="palette-input">Color codes</label>
               <textarea id="palette-input" rows="2" maxlength="1024" spellcheck="false" autocapitalize="off"
                 placeholder="#58B6FC&#10;rgb(90, 75, 198)" aria-describedby="palette-help palette-error"></textarea>
-              <p class="custom-help" id="palette-help">HEX 또는 RGB를 입력하세요. 1–8색, 입력한 순서대로 적용됩니다.</p>
+              <p class="custom-help" id="palette-help">Enter 1–8 HEX or RGB colors in the order you want them applied.</p>
               <p class="error" id="palette-error" role="status" hidden></p>
-              <button class="apply-palette" type="submit">팔레트 적용</button>
+              <button class="apply-palette" type="submit">Apply palette</button>
             </form>
           </details>
-          <div class="swatches" id="swatches" aria-label="선택한 팔레트의 색상 코드"></div>
+          <div class="swatches" id="swatches" aria-label="Selected palette color codes"></div>
         </fieldset>
       </section>
 
       <section class="card preview" aria-labelledby="preview-title">
         <div class="preview-header">
-          <h2 id="preview-title">미리보기</h2>
+          <h2 id="preview-title">Preview</h2>
           <span class="size-label" id="grid-size" hidden></span>
         </div>
         <div class="stage" id="stage">
           <div class="qr-sheet">
-            <canvas id="qr" width="960" height="960" role="img" aria-label="입력한 링크의 네트워크 QR 코드" hidden></canvas>
-            <p class="empty" id="empty">링크를 입력하면 QR이 표시됩니다.</p>
+            <canvas id="qr" width="960" height="960" role="img" aria-label="Network QR code for the destination URL" hidden></canvas>
+            <p class="empty" id="empty">Enter a URL to preview its QR code.</p>
           </div>
         </div>
         <div class="preview-footer">
           <span class="file-size" id="file-size">1536 × 1536 px</span>
           <div class="export-controls">
-            <label class="sr-only" for="export-format">파일 형식</label>
+            <label class="sr-only" for="export-format">File format</label>
             <select class="export-format" id="export-format" aria-describedby="file-size">
               <option value="png">PNG</option>
               <option value="svg">SVG</option>
               <option value="pdf">PDF</option>
               <option value="ai">AI</option>
             </select>
-            <button class="download" id="download" type="button" disabled><span class="save-icon" aria-hidden="true"></span>다운로드</button>
+            <button class="download" id="download" type="button" disabled><span class="save-icon" aria-hidden="true"></span>Download</button>
           </div>
         </div>
         <p class="error" id="download-status" role="status" hidden></p>
-        <noscript><p class="error">QR 생성을 사용하려면 브라우저에서 JavaScript를 켜 주세요.</p></noscript>
+        <noscript><p class="error">Enable JavaScript in your browser to generate QR codes.</p></noscript>
       </section>
     </div>
     <footer class="license-footer" lang="en">
@@ -2693,14 +2693,14 @@ var qrcode = function() {
       'use strict';
 
       const palettes = [
-        { id: 'brand', name: '브랜드', stops: ['#58B6FC', '#4A8EF6', '#2F6FEB', '#5A4BC6'], shade: .26 },
-        { id: 'ocean', name: '바다', stops: ['#38BDF8', '#0891B2', '#0F766E', '#164E63'], shade: .32 },
-        { id: 'forest', name: '숲', stops: ['#84CC78', '#4A9B62', '#287257', '#214840'], shade: .33 },
-        { id: 'sunset', name: '노을', stops: ['#F8A04E', '#E96D58', '#C64575', '#822D65'], shade: .32 },
-        { id: 'berry', name: '베리', stops: ['#E679B4', '#CC4D9B', '#8F48A8', '#592581'], shade: .29 },
-        { id: 'amber', name: '호박빛', stops: ['#E5AF47', '#CD8C24', '#AD5D2B', '#68382C'], shade: .32 },
-        { id: 'night', name: '밤하늘', stops: ['#727BE2', '#4A55A5', '#38377E', '#242650'], shade: .12 },
-        { id: 'mono', name: '흑백', stops: ['#747474', '#545454', '#353535', '#171717'], shade: 0 }
+        { id: 'brand', name: 'Brand', stops: ['#58B6FC', '#4A8EF6', '#2F6FEB', '#5A4BC6'], shade: .26 },
+        { id: 'ocean', name: 'Ocean', stops: ['#38BDF8', '#0891B2', '#0F766E', '#164E63'], shade: .32 },
+        { id: 'forest', name: 'Forest', stops: ['#84CC78', '#4A9B62', '#287257', '#214840'], shade: .33 },
+        { id: 'sunset', name: 'Sunset', stops: ['#F8A04E', '#E96D58', '#C64575', '#822D65'], shade: .32 },
+        { id: 'berry', name: 'Berry', stops: ['#E679B4', '#CC4D9B', '#8F48A8', '#592581'], shade: .29 },
+        { id: 'amber', name: 'Amber', stops: ['#E5AF47', '#CD8C24', '#AD5D2B', '#68382C'], shade: .32 },
+        { id: 'night', name: 'Night Sky', stops: ['#727BE2', '#4A55A5', '#38377E', '#242650'], shade: .12 },
+        { id: 'mono', name: 'Mono', stops: ['#747474', '#545454', '#353535', '#171717'], shade: 0 }
       ];
       const ink = '#16213A';
       const white = [255, 255, 255];
@@ -2764,13 +2764,13 @@ var qrcode = function() {
       function parseRgb(input) {
         const parts = input.includes(',') ? input.split(',').map(part => part.trim()) : input.trim().split(/\s+/);
         if (parts.length !== 3 || parts.some(part => !/^(?:\d+(?:\.\d+)?|\.\d+)%?$/.test(part))) {
-          throw new Error('RGB는 0–255 또는 0–100% 값 세 개를 입력해 주세요.');
+          throw new Error('Enter three RGB values from 0 to 255, or percentages from 0% to 100%.');
         }
         return parts.map(part => {
           const percent = part.endsWith('%');
           const value = Number.parseFloat(part);
           const limit = percent ? 100 : 255;
-          if (value > limit) throw new Error('RGB는 0–255 또는 0–100% 범위의 값을 사용해 주세요.');
+          if (value > limit) throw new Error('Use RGB values from 0 to 255 or percentages from 0% to 100%.');
           return Math.round(value / limit * 255);
         });
       }
@@ -2785,7 +2785,7 @@ var qrcode = function() {
           }
           while (remaining) {
             const color = /^(?:rgb\(([^()]*)\)|#?([\da-f]{6}|[\da-f]{3}))(?=$|[\s,])/i.exec(remaining);
-            if (!color) throw new Error('예시처럼 #58B6FC 또는 rgb(88, 182, 252) 형식으로 입력해 주세요.');
+            if (!color) throw new Error('Enter a color like #58B6FC or rgb(88, 182, 252).');
             const [, rgb, hex] = color;
             const value = rgb === undefined
               ? '#' + (hex.length === 3 ? hex.replace(/./g, '$&$&') : hex)
@@ -2794,7 +2794,7 @@ var qrcode = function() {
             remaining = remaining.slice(color[0].length).replace(/^[\s,]+/, '');
           }
         }
-        if (colors.length < 1 || colors.length > 8) throw new Error('색상을 1–8개 입력해 주세요.');
+        if (colors.length < 1 || colors.length > 8) throw new Error('Enter 1–8 colors.');
         return colors;
       }
 
@@ -3336,9 +3336,9 @@ var qrcode = function() {
 
       const formats = {
         png: { detail: '1536 × 1536 px', encode: exportPng },
-        svg: { detail: 'SVG 벡터', encode: exportSvg },
-        pdf: { detail: '벡터 · 384 × 384 pt', encode: exportPdf },
-        ai: { detail: 'Illustrator 레거시 벡터', encode: exportIllustrator }
+        svg: { detail: 'SVG vector', encode: exportSvg },
+        pdf: { detail: 'Vector · 384 × 384 pt', encode: exportPdf },
+        ai: { detail: 'Legacy Illustrator vector', encode: exportIllustrator }
       };
 
       function clearQr(message = '') {
@@ -3346,7 +3346,7 @@ var qrcode = function() {
         showEdgeState();
         preview.hidden = true;
         empty.hidden = false;
-        empty.textContent = message ? '링크를 확인해 주세요.' : '링크를 입력하면 QR이 표시됩니다.';
+        empty.textContent = message ? 'Check the URL and try again.' : 'Enter a URL to preview its QR code.';
         gridSize.hidden = true;
         openLink.hidden = true;
         openLink.removeAttribute('href');
@@ -3370,7 +3370,7 @@ var qrcode = function() {
           url = new URL(raw);
           if (!/^https?:\/\//i.test(raw) || !url.hostname) throw new Error('Invalid web address');
         } catch {
-          clearQr('https:// 또는 http://로 시작하는 주소를 입력해 주세요.');
+          clearQr('Enter a URL that starts with https:// or http://.');
           return;
         }
 
@@ -3380,7 +3380,7 @@ var qrcode = function() {
           if (byteEncoder.encode(url.href).length > 1663) throw new Error('URL exceeds QR capacity');
           graph = current?.url === url.href ? current.graph : encodeQr(url.href);
         } catch {
-          clearQr('주소가 너무 길어요. 짧은 링크를 입력해 주세요.');
+          clearQr('This URL is too long. Try a shorter one.');
           return;
         }
 
@@ -3415,7 +3415,7 @@ var qrcode = function() {
       function showFormat() {
         const format = exportFormat.value;
         fileSize.textContent = formats[format].detail;
-        download.setAttribute('aria-label', `${format.toUpperCase()} 다운로드`);
+        download.setAttribute('aria-label', `Download ${format.toUpperCase()}`);
         downloadStatus.hidden = true;
       }
 
@@ -3444,8 +3444,10 @@ var qrcode = function() {
           edgeCounts.textContent = '';
           return;
         }
-        edgeSummary.textContent = `${scene.linkCount.toLocaleString('ko-KR')}개`;
-        edgeCounts.textContent = `링크 ${scene.linkCount.toLocaleString('ko-KR')} / 후보 ${scene.candidateCount.toLocaleString('ko-KR')}`;
+        const links = scene.linkCount.toLocaleString('en');
+        const candidates = scene.candidateCount.toLocaleString('en');
+        edgeSummary.textContent = `${links} ${scene.linkCount === 1 ? 'link' : 'links'}`;
+        edgeCounts.textContent = `${links} of ${candidates} candidate links`;
         if (edgeModel.value === 'fixed') {
           edgeSample.max = String(scene.candidateCount);
           edgeSample.value = String(Math.min(requestedEdgeCount, scene.candidateCount));
@@ -3487,7 +3489,7 @@ var qrcode = function() {
           link.remove();
           window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
         } catch {
-          downloadStatus.textContent = `${format.toUpperCase()} 파일을 만들 수 없습니다. 다시 시도해 주세요.`;
+          downloadStatus.textContent = `Could not create the ${format.toUpperCase()} file. Try again.`;
           downloadStatus.hidden = false;
         }
       }
