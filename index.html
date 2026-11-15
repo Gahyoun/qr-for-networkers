@@ -1,9 +1,16 @@
 <!doctype html>
+<!--
+  QR for Networkers. Copyright (C) 2026 Gahyoun Gim.
+  The original application code is available under the GNU General Public
+  License, version 3 or any later version (SPDX: GPL-3.0-or-later).
+  It comes without warranty. See LICENSE or https://www.gnu.org/licenses/.
+  The bundled QR encoder retains its MIT notice below.
+-->
 <html lang="ko">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="둥근 노드를 연결한 네트워크 QR 코드를 만들고 PNG, SVG, PDF, AI로 저장하세요.">
+  <meta name="description" content="Express your field with a QR code :)">
   <title>QR for network</title>
   <style>
     :root {
@@ -119,14 +126,14 @@
     }
     .palette-choice:has(input:focus-visible) { outline: 3px solid #3168cd; outline-offset: 2px; }
     .palette-track { height: 8px; background: var(--palette-gradient); border-radius: 6px; }
-    .custom-palette { border: 1px solid var(--line); border-radius: 10px; }
+    :is(.custom-palette, .edge-settings) { border: 1px solid var(--line); border-radius: 10px; }
     .custom-palette[data-active] { border-color: #386fe0; background: #f6f9ff; }
-    .custom-palette summary {
+    :is(.custom-palette, .edge-settings) summary {
       min-height: 37px; padding: 9px 11px; cursor: pointer;
       color: var(--body); font-size: .8rem; font-weight: 700;
     }
-    .custom-palette summary::marker { color: #3565c4; }
-    .custom-palette summary:focus-visible { border-radius: inherit; }
+    :is(.custom-palette, .edge-settings) summary::marker { color: #3565c4; }
+    :is(.custom-palette, .edge-settings) summary:focus-visible { border-radius: inherit; }
     .custom-status { float: right; color: #2959ac; font-size: .72rem; }
     .custom-editor { padding: 0 11px 11px; }
     .custom-editor label { display: block; margin-bottom: 6px; font-size: .8rem; font-weight: 730; }
@@ -137,6 +144,19 @@
       border-radius: 8px; background: #f2f6ff; color: #254e9a; font-size: .8rem; font-weight: 720;
     }
     .apply-palette:hover { background: #e5efff; }
+    .edge-editor { display: grid; gap: 9px; padding: 0 11px 11px; }
+    .edge-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(94px, .86fr); gap: 8px; }
+    .edge-field { display: grid; gap: 4px; min-width: 0; color: var(--body); font-size: .75rem; font-weight: 690; }
+    .edge-field :is(input, select) {
+      width: 100%; min-height: 34px; padding: 4px 7px; border: 1px solid #ccd8ed;
+      border-radius: 8px; background: #f8faff; color: var(--ink); font-size: .8rem;
+    }
+    .edge-crossing { display: flex; align-items: center; gap: 5px; color: var(--body); font-size: .76rem; }
+    .edge-crossing input { margin: 0; accent-color: #356de0; }
+    .edge-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px 9px; }
+    .edge-counts { margin: 0; color: var(--muted); font-size: .73rem; line-height: 1.4; }
+    .license-footer { margin-top: 25px; color: var(--muted); font-size: .76rem; }
+    .license-footer a { text-decoration: underline; text-underline-offset: 2px; }
     .swatches { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
     .swatch { min-width: 0; text-align: center; color: var(--muted); font: 620 .67rem/1.1 "IBM Plex Mono", ui-monospace, Menlo, monospace; }
     .swatch::before { content: ""; display: block; height: 12px; margin-bottom: 6px; border-radius: 8px; background: var(--swatch); }
@@ -222,7 +242,7 @@
     <section class="hero" aria-labelledby="page-title">
       <canvas class="hero-art" id="hero-art" width="1040" height="420" aria-hidden="true"></canvas>
       <h1 id="page-title">QR for <span>network</span></h1>
-      <p>상하좌우와 대각선 이웃을 연결한 QR 코드를 만드세요.</p>
+      <p lang="en">Express your field with a QR code :)</p>
     </section>
 
     <div class="workspace">
@@ -260,6 +280,36 @@
             </div>
             <input type="range" id="variation" min="0" max="100" value="70">
           </div>
+          <details class="edge-settings">
+            <summary>링크 샘플링 <span class="custom-status" id="edge-summary"></span></summary>
+            <div class="edge-editor">
+              <div class="edge-fields">
+                <label class="edge-field" for="edge-model">샘플링 방식
+                  <select id="edge-model">
+                    <option value="connected">연결 보존</option>
+                    <option value="bernoulli">Bernoulli</option>
+                    <option value="fixed">고정 링크 수</option>
+                  </select>
+                </label>
+                <label class="edge-field" for="edge-seed">링크 시드
+                  <input type="number" id="edge-seed" min="0" max="4294967295" step="1" value="0" required>
+                </label>
+                <label class="edge-field" id="edge-probability-field" for="edge-probability" hidden>선택 확률 (%)
+                  <input type="number" id="edge-probability" min="0" max="100" step="1" value="65" required>
+                </label>
+                <label class="edge-field" id="edge-sample-field" for="edge-sample" hidden>링크 수
+                  <input type="number" id="edge-sample" min="0" step="1" value="600" required>
+                </label>
+              </div>
+              <label class="edge-crossing" id="edge-crossing-field" hidden>
+                <input type="checkbox" id="edge-crossing">교차 허용
+              </label>
+              <div class="edge-actions">
+                <p class="edge-counts" id="edge-counts"></p>
+                <button class="shuffle" id="resample-edges" type="button">링크만 다시 뽑기</button>
+              </div>
+            </div>
+          </details>
         </fieldset>
 
         <fieldset class="palette">
@@ -308,6 +358,11 @@
         <noscript><p class="error">QR 생성을 사용하려면 브라우저에서 JavaScript를 켜 주세요.</p></noscript>
       </section>
     </div>
+    <footer class="license-footer" lang="en">
+      Code · <a href="./LICENSE">GNU GPL v3+</a>
+      &nbsp;·&nbsp;
+      QR artwork · <a href="https://creativecommons.org/publicdomain/zero/1.0/" rel="license">CC0 1.0</a>
+    </footer>
   </main>
 
   <script>
@@ -2660,6 +2715,17 @@ var qrcode = function() {
       const variationInput = document.getElementById('variation');
       const variationValue = document.getElementById('variation-value');
       const shuffle = document.getElementById('shuffle');
+      const edgeModel = document.getElementById('edge-model');
+      const edgeSeedInput = document.getElementById('edge-seed');
+      const edgeProbability = document.getElementById('edge-probability');
+      const edgeProbabilityField = document.getElementById('edge-probability-field');
+      const edgeSample = document.getElementById('edge-sample');
+      const edgeSampleField = document.getElementById('edge-sample-field');
+      const edgeCrossing = document.getElementById('edge-crossing');
+      const edgeCrossingField = document.getElementById('edge-crossing-field');
+      const edgeSummary = document.getElementById('edge-summary');
+      const edgeCounts = document.getElementById('edge-counts');
+      const resampleEdges = document.getElementById('resample-edges');
       const paletteChoices = document.getElementById('palette-choices');
       const customPalette = document.getElementById('custom-palette');
       const customStatus = document.getElementById('custom-status');
@@ -2679,7 +2745,9 @@ var qrcode = function() {
       qrcode.stringToBytes = value => byteEncoder.encode(value);
 
       let selectedPalette = palettes[0];
-      let layoutSeed = 0;
+      let nodeSeed = 0;
+      let edgeSeed = 0;
+      let requestedEdgeCount = edgeSample.valueAsNumber;
       let current = null;
       let updateTimer;
       let redrawFrame;
@@ -2926,7 +2994,7 @@ var qrcode = function() {
             const cell = diagonal ? y * (size - 1) + Math.min(x, toX) : -1;
             const weight = randomUnit((from + 1) * 409 + to * 17 + layoutOffset);
             const priority = (diagonal ? .48 : .59) * (1 - variation) + weight * variation;
-            candidates.push({ from, to, diagonal, cell, weight, priority });
+            candidates.push({ from, to, diagonal, cell, slope: dx, weight, priority });
           }
         });
         return candidates;
@@ -2986,6 +3054,42 @@ var qrcode = function() {
         return selected;
       }
 
+      function uncrossedPool(candidates) {
+        const diagonalByCell = new Map();
+        for (const link of candidates) {
+          if (!link.diagonal) continue;
+          // Choose a fixed orientation in each cell before sampling. The pool
+          // stays the same when changing seeds or sampling methods.
+          const preferredSlope = randomUnit(link.cell + 337219) < .5 ? -1 : 1;
+          if (!diagonalByCell.has(link.cell) || link.slope === preferredSlope) {
+            diagonalByCell.set(link.cell, link);
+          }
+        }
+        return candidates.filter(link => !link.diagonal || diagonalByCell.get(link.cell) === link);
+      }
+
+      function sampleLinks(candidates, pointCount, { model, variation, seed, probability, count, crossings }) {
+        if (model === 'connected') {
+          return { links: [...selectLinks(candidates, pointCount, variation)], candidateCount: candidates.length };
+        }
+
+        const pool = crossings ? candidates.slice() : uncrossedPool(candidates);
+        const candidateCount = pool.length;
+        let randomState = Math.imul(seed, 0x6d2b79f5);
+        const next = () => randomUnit(++randomState);
+        if (model === 'bernoulli') {
+          return { links: pool.filter(() => next() < probability), candidateCount };
+        }
+
+        // A partial Fisher–Yates shuffle samples exactly k distinct edges.
+        const size = Math.min(count, candidateCount);
+        for (let index = 0; index < size; index++) {
+          const pick = index + Math.floor(next() * (candidateCount - index));
+          [pool[index], pool[pick]] = [pool[pick], pool[index]];
+        }
+        return { links: pool.slice(0, size), candidateCount };
+      }
+
       const circleControl = .5522847498;
 
       function squarePath(x, y, width, radius = 0) {
@@ -3019,12 +3123,12 @@ var qrcode = function() {
         ];
       }
 
-      function buildScene(graph, palette, { withAxis, withDiagonal, variation, seed }) {
+      function buildScene(graph, palette, { withAxis, withDiagonal, variation, nodeSeed, sampling }) {
         const { size, finders, alignments, fixed } = graph;
-        const layoutOffset = Math.imul(seed, 0x9e3779b1);
-        const points = layoutNodes(size, graph.nodes, variation, layoutOffset);
-        const candidates = neighborLinks(size, points, withAxis, withDiagonal, variation, layoutOffset);
-        const links = selectLinks(candidates, points.length, variation);
+        const points = layoutNodes(size, graph.nodes, variation, Math.imul(nodeSeed, 0x9e3779b1));
+        const edgeOffset = Math.imul(sampling.seed, 0x9e3779b1);
+        const candidates = neighborLinks(size, points, withAxis, withDiagonal, variation, edgeOffset);
+        const { links, candidateCount } = sampleLinks(candidates, points.length, { ...sampling, variation });
         const stops = palette.stops.map(rgbChannels);
         const darkInk = rgbChannels(ink);
         const nodeStops = palette.id === 'custom'
@@ -3096,7 +3200,7 @@ var qrcode = function() {
           { name: 'Nodes', shapes: nodes },
           { name: 'QR patterns', shapes: patterns }
         ].filter(layer => layer.shapes.length);
-        return { side, layers };
+        return { side, layers, candidateCount, linkCount: links.length };
       }
 
       function number(value) {
@@ -3138,7 +3242,8 @@ var qrcode = function() {
           '<title>QR for network</title>'
         ];
         for (const { name, shapes } of layers) {
-          svg.push(`<g aria-label="${name}">`);
+          const id = name.toLowerCase().replaceAll(' ', '-');
+          svg.push(`<g id="${id}" aria-label="${name}">`);
           for (const { path, color, width } of shapes) {
             const paint = width
               ? `fill="none" stroke="${hexColor(color)}" stroke-width="${number(width)}" stroke-linecap="round"`
@@ -3238,6 +3343,7 @@ var qrcode = function() {
 
       function clearQr(message = '') {
         current = null;
+        showEdgeState();
         preview.hidden = true;
         empty.hidden = false;
         empty.textContent = message ? '링크를 확인해 주세요.' : '링크를 입력하면 QR이 표시됩니다.';
@@ -3282,9 +3388,17 @@ var qrcode = function() {
           withAxis: axisToggle.checked,
           withDiagonal: diagonalToggle.checked,
           variation: Number(variationInput.value) / 100,
-          seed: layoutSeed
+          nodeSeed,
+          sampling: {
+            model: edgeModel.value,
+            seed: edgeSeed,
+            probability: boundedInteger(edgeProbability, 65) / 100,
+            count: requestedEdgeCount,
+            crossings: edgeCrossing.checked
+          }
         });
         current = { url: url.href, graph, scene };
+        showEdgeState(scene);
         drawScene(preview, scene);
         preview.hidden = false;
         empty.hidden = true;
@@ -3313,9 +3427,44 @@ var qrcode = function() {
         redrawFrame = window.requestAnimationFrame(updateQr);
       }
 
+      function boundedInteger(input, fallback) {
+        const value = Number.isFinite(input.valueAsNumber) ? input.valueAsNumber : fallback;
+        const maximum = input.max === '' ? Number.MAX_SAFE_INTEGER : Number(input.max);
+        return Math.min(maximum, Math.max(Number(input.min), Math.trunc(value)));
+      }
+
+      function showEdgeState(scene) {
+        const connected = edgeModel.value === 'connected';
+        edgeProbabilityField.hidden = edgeModel.value !== 'bernoulli';
+        edgeSampleField.hidden = edgeModel.value !== 'fixed';
+        edgeCrossingField.hidden = connected;
+        resampleEdges.disabled = !scene?.candidateCount || (connected && Number(variationInput.value) === 0);
+        if (!scene) {
+          edgeSummary.textContent = '';
+          edgeCounts.textContent = '';
+          return;
+        }
+        edgeSummary.textContent = `${scene.linkCount.toLocaleString('ko-KR')}개`;
+        edgeCounts.textContent = `링크 ${scene.linkCount.toLocaleString('ko-KR')} / 후보 ${scene.candidateCount.toLocaleString('ko-KR')}`;
+        if (edgeModel.value === 'fixed') {
+          edgeSample.max = String(scene.candidateCount);
+          edgeSample.value = String(Math.min(requestedEdgeCount, scene.candidateCount));
+        }
+      }
+
+      function nextSeed(previous) {
+        const [seed] = crypto.getRandomValues(new Uint32Array(1));
+        return seed === previous ? (seed + 1) >>> 0 : seed;
+      }
+
+      function setEdgeSeed(seed) {
+        edgeSeed = seed;
+        edgeSeedInput.value = String(seed);
+      }
+
       function shuffleLayout() {
-        const [randomSeed] = crypto.getRandomValues(new Uint32Array(1));
-        layoutSeed = randomSeed === layoutSeed ? (randomSeed + 1) >>> 0 : randomSeed;
+        nodeSeed = nextSeed(nodeSeed);
+        setEdgeSeed(nextSeed(edgeSeed));
         updateLayout();
       }
 
@@ -3413,6 +3562,24 @@ var qrcode = function() {
       diagonalToggle.addEventListener('change', updateQr);
       variationInput.addEventListener('input', updateLayout);
       shuffle.addEventListener('click', shuffleLayout);
+      edgeModel.addEventListener('change', updateLayout);
+      edgeCrossing.addEventListener('change', updateLayout);
+      edgeSeedInput.addEventListener('change', () => {
+        setEdgeSeed(boundedInteger(edgeSeedInput, edgeSeed));
+        updateLayout();
+      });
+      edgeProbability.addEventListener('change', () => {
+        edgeProbability.value = String(boundedInteger(edgeProbability, 65));
+        updateLayout();
+      });
+      edgeSample.addEventListener('change', () => {
+        requestedEdgeCount = boundedInteger(edgeSample, requestedEdgeCount);
+        updateLayout();
+      });
+      resampleEdges.addEventListener('click', () => {
+        setEdgeSeed(nextSeed(edgeSeed));
+        updateLayout();
+      });
       paletteChoices.addEventListener('change', event => {
         selectedPalette = palettes.find(palette => palette.id === event.target.value);
         showPalette();
