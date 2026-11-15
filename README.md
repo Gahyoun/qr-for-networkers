@@ -12,7 +12,7 @@ Open **Link sampling** to choose a model.
 
 | Model | How it chooses links |
 | --- | --- |
-| Keep connected | Builds a spanning forest for each connected component of the candidate graph, then adds links while limiting crossings and crowding. |
+| Connected | Builds a spanning forest for each connected component of the candidate graph, then adds links while limiting crossings and crowding. |
 | Bernoulli | Includes each eligible link independently with probability `p`. The number of selected links can vary between samples. |
 | Fixed count | Draws exactly `k` distinct eligible links without replacement. The available pool sets the maximum. |
 
