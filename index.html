@@ -268,17 +268,18 @@
           <label class="option">
             <canvas class="diagram" id="diagonal-icon" width="48" height="48" aria-hidden="true"></canvas>
             <span><strong>Diagonal links</strong><small>Corner neighbors</small></span>
-            <input class="switch" type="checkbox" role="switch" id="diagonal" checked>
+            <input class="switch" type="checkbox" role="switch" id="diagonal">
           </label>
-          <div class="variation">
+          <div class="variation" id="variation-control">
             <div class="variation-head">
               <div>
                 <label for="variation">Randomness</label>
                 <output class="variation-value" for="variation" id="variation-value">70%</output>
               </div>
-              <button class="shuffle" id="shuffle" type="button">Shuffle</button>
+              <button class="shuffle" id="shuffle" type="button" disabled>Shuffle links</button>
             </div>
-            <input type="range" id="variation" min="0" max="100" value="70">
+            <input type="range" id="variation" min="0" max="100" value="70" aria-describedby="added-links">
+            <p class="edge-counts" id="added-links"></p>
           </div>
           <details class="edge-settings">
             <summary>Link sampling <span class="custom-status" id="edge-summary"></span></summary>
@@ -2712,8 +2713,10 @@ var qrcode = function() {
       const openLink = document.getElementById('open-link');
       const axisToggle = document.getElementById('axis');
       const diagonalToggle = document.getElementById('diagonal');
+      const variationControl = document.getElementById('variation-control');
       const variationInput = document.getElementById('variation');
       const variationValue = document.getElementById('variation-value');
+      const addedLinks = document.getElementById('added-links');
       const shuffle = document.getElementById('shuffle');
       const edgeModel = document.getElementById('edge-model');
       const edgeSeedInput = document.getElementById('edge-seed');
@@ -2745,7 +2748,6 @@ var qrcode = function() {
       qrcode.stringToBytes = value => byteEncoder.encode(value);
 
       let selectedPalette = palettes[0];
-      let nodeSeed = 0;
       let edgeSeed = 0;
       let requestedEdgeCount = edgeSample.valueAsNumber;
       let current = null;
@@ -2944,8 +2946,7 @@ var qrcode = function() {
         return ((mixed ^ (mixed >>> 15)) >>> 0) / 4294967296;
       }
 
-      function layoutNodes(size, nodes, variation, layoutOffset) {
-        const spread = Math.min(1, variation * 1.5);
+      function layoutNodes(size, nodes) {
         return Array.from(nodes, (active, index) => {
           if (!active) return null;
           const x = index % size;
@@ -2958,24 +2959,23 @@ var qrcode = function() {
             }
           }
 
-          const seed = (index + 1) * 31 + size * 137 + layoutOffset;
-          const irregularRadius = .307 + .081 * randomUnit(seed) ** 1.56 + .047 * degree / 8;
-          const radius = .365 + (irregularRadius - .365) * spread;
+          const seed = (index + 1) * 31 + size * 137;
+          const radius = .307 + .081 * randomUnit(seed) ** 1.56 + .047 * degree / 8;
           const angle = randomUnit(seed + 1) * Math.PI * 2;
           // Keep the sampling center inside the dot, and the dot inside its dark module.
           const limit = Math.min(radius - .13, .49 - radius);
-          const distance = limit * (.52 + .48 * randomUnit(seed + 2)) * spread;
+          const distance = limit * (.52 + .48 * randomUnit(seed + 2));
           return {
             x: x + .5 + Math.cos(angle) * distance,
             y: y + .5 + Math.sin(angle) * distance,
             radius,
             // A few highly connected nodes have a soft ring like the reference network.
-            ring: degree >= 4 && randomUnit(seed + 3) > 1 - .29 * spread
+            ring: degree >= 4 && randomUnit(seed + 3) > .71
           };
         });
       }
 
-      function neighborLinks(size, points, withAxis, withDiagonal, variation, layoutOffset) {
+      function neighborLinks(size, points, withAxis, withDiagonal, edgeOffset) {
         const candidates = [];
         const directions = [];
         if (withAxis) directions.push([1, 0], [0, 1]);
@@ -2992,8 +2992,9 @@ var qrcode = function() {
             if (!points[to]) continue;
             const diagonal = dx !== 0 && dy !== 0;
             const cell = diagonal ? y * (size - 1) + Math.min(x, toX) : -1;
-            const weight = randomUnit((from + 1) * 409 + to * 17 + layoutOffset);
-            const priority = (diagonal ? .48 : .59) * (1 - variation) + weight * variation;
+            const key = (from + 1) * 409 + to * 17;
+            const weight = randomUnit(key);
+            const priority = randomUnit(key + edgeOffset);
             candidates.push({ from, to, diagonal, cell, slope: dx, weight, priority });
           }
         });
@@ -3001,7 +3002,7 @@ var qrcode = function() {
       }
 
       function selectLinks(candidates, pointCount, variation) {
-        candidates.sort((first, second) => second.priority - first.priority);
+        candidates.sort((first, second) => second.weight - first.weight);
         const parents = Int32Array.from({ length: pointCount }, (_, index) => index);
         const degrees = new Uint8Array(pointCount);
         const cells = new Set();
@@ -3043,15 +3044,20 @@ var qrcode = function() {
         }
         deferred.forEach(bridge);
 
-        const target = Math.round(candidates.length * (1 - .5 * variation));
-        const degreeLimit = Math.round(8 - 4 * variation);
-        for (const link of candidates) {
-          if (selected.size >= target) break;
-          if (selected.has(link) || crosses(link) ||
+        const backbone = [...selected];
+        const extras = [];
+        const degreeLimit = 5;
+        const optional = candidates.filter(link => !selected.has(link));
+        optional.sort((first, second) => second.priority - first.priority);
+        for (const link of optional) {
+          if (crosses(link) ||
               degrees[link.from] >= degreeLimit || degrees[link.to] >= degreeLimit) continue;
           add(link);
+          extras.push(link);
         }
-        return selected;
+        // A larger slider value takes a longer prefix of the same random links.
+        const addedCount = Math.round(extras.length * variation);
+        return { links: backbone.concat(extras.slice(0, addedCount)), addedCount };
       }
 
       function uncrossedPool(candidates) {
@@ -3070,7 +3076,7 @@ var qrcode = function() {
 
       function sampleLinks(candidates, pointCount, { model, variation, seed, probability, count, crossings }) {
         if (model === 'connected') {
-          return { links: [...selectLinks(candidates, pointCount, variation)], candidateCount: candidates.length };
+          return { ...selectLinks(candidates, pointCount, variation), candidateCount: candidates.length };
         }
 
         const pool = crossings ? candidates.slice() : uncrossedPool(candidates);
@@ -3123,12 +3129,12 @@ var qrcode = function() {
         ];
       }
 
-      function buildScene(graph, palette, { withAxis, withDiagonal, variation, nodeSeed, sampling }) {
+      function buildScene(graph, palette, { withAxis, withDiagonal, variation, sampling }) {
         const { size, finders, alignments, fixed } = graph;
-        const points = layoutNodes(size, graph.nodes, variation, Math.imul(nodeSeed, 0x9e3779b1));
+        const points = layoutNodes(size, graph.nodes);
         const edgeOffset = Math.imul(sampling.seed, 0x9e3779b1);
-        const candidates = neighborLinks(size, points, withAxis, withDiagonal, variation, edgeOffset);
-        const { links, candidateCount } = sampleLinks(candidates, points.length, { ...sampling, variation });
+        const candidates = neighborLinks(size, points, withAxis, withDiagonal, edgeOffset);
+        const { links, candidateCount, addedCount } = sampleLinks(candidates, points.length, { ...sampling, variation });
         const stops = palette.stops.map(rgbChannels);
         const darkInk = rgbChannels(ink);
         const nodeStops = palette.id === 'custom'
@@ -3152,7 +3158,7 @@ var qrcode = function() {
         for (const link of links) {
           const from = points[link.from];
           const to = points[link.to];
-          const strength = .5 + (link.weight - .5) * Math.min(1, variation * 1.45);
+          const strength = link.weight;
           const linkTone = tone((from.x + to.x) * .5, (from.y + to.y) * .5);
           const layer = link.diagonal ? diagonals : axis;
           layer.push({
@@ -3200,7 +3206,7 @@ var qrcode = function() {
           { name: 'Nodes', shapes: nodes },
           { name: 'QR patterns', shapes: patterns }
         ].filter(layer => layer.shapes.length);
-        return { side, layers, candidateCount, linkCount: links.length };
+        return { side, layers, candidateCount, addedCount, linkCount: links.length };
       }
 
       function number(value) {
@@ -3388,7 +3394,6 @@ var qrcode = function() {
           withAxis: axisToggle.checked,
           withDiagonal: diagonalToggle.checked,
           variation: Number(variationInput.value) / 100,
-          nodeSeed,
           sampling: {
             model: edgeModel.value,
             seed: edgeSeed,
@@ -3421,7 +3426,6 @@ var qrcode = function() {
 
       function updateLayout() {
         variationValue.value = `${variationInput.value}%`;
-        shuffle.disabled = Number(variationInput.value) === 0;
         download.disabled = true;
         window.cancelAnimationFrame(redrawFrame);
         redrawFrame = window.requestAnimationFrame(updateQr);
@@ -3435,10 +3439,14 @@ var qrcode = function() {
 
       function showEdgeState(scene) {
         const connected = edgeModel.value === 'connected';
+        variationControl.hidden = !connected;
         edgeProbabilityField.hidden = edgeModel.value !== 'bernoulli';
         edgeSampleField.hidden = edgeModel.value !== 'fixed';
         edgeCrossingField.hidden = connected;
-        resampleEdges.disabled = !scene?.candidateCount || (connected && Number(variationInput.value) === 0);
+        shuffle.disabled = !scene?.addedCount || scene.linkCount === scene.candidateCount;
+        resampleEdges.hidden = connected;
+        resampleEdges.disabled = !scene?.candidateCount;
+        addedLinks.hidden = !scene || !connected;
         if (!scene) {
           edgeSummary.textContent = '';
           edgeCounts.textContent = '';
@@ -3448,6 +3456,9 @@ var qrcode = function() {
         const candidates = scene.candidateCount.toLocaleString('en');
         edgeSummary.textContent = `${links} ${scene.linkCount === 1 ? 'link' : 'links'}`;
         edgeCounts.textContent = `${links} of ${candidates} candidate links`;
+        if (connected) {
+          addedLinks.textContent = `${scene.addedCount.toLocaleString('en')} added ${scene.addedCount === 1 ? 'link' : 'links'}`;
+        }
         if (edgeModel.value === 'fixed') {
           edgeSample.max = String(scene.candidateCount);
           edgeSample.value = String(Math.min(requestedEdgeCount, scene.candidateCount));
@@ -3464,8 +3475,7 @@ var qrcode = function() {
         edgeSeedInput.value = String(seed);
       }
 
-      function shuffleLayout() {
-        nodeSeed = nextSeed(nodeSeed);
+      function shuffleLinks() {
         setEdgeSeed(nextSeed(edgeSeed));
         updateLayout();
       }
@@ -3563,7 +3573,7 @@ var qrcode = function() {
       axisToggle.addEventListener('change', updateQr);
       diagonalToggle.addEventListener('change', updateQr);
       variationInput.addEventListener('input', updateLayout);
-      shuffle.addEventListener('click', shuffleLayout);
+      shuffle.addEventListener('click', shuffleLinks);
       edgeModel.addEventListener('change', updateLayout);
       edgeCrossing.addEventListener('change', updateLayout);
       edgeSeedInput.addEventListener('change', () => {
@@ -3578,10 +3588,7 @@ var qrcode = function() {
         requestedEdgeCount = boundedInteger(edgeSample, requestedEdgeCount);
         updateLayout();
       });
-      resampleEdges.addEventListener('click', () => {
-        setEdgeSeed(nextSeed(edgeSeed));
-        updateLayout();
-      });
+      resampleEdges.addEventListener('click', shuffleLinks);
       paletteChoices.addEventListener('change', event => {
         selectedPalette = palettes.find(palette => palette.id === event.target.value);
         showPalette();
