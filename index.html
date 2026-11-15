@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="둥근 노드를 연결한 네트워크 QR 코드를 만들고 PNG, SVG, PDF, AI로 저장하세요.">
-  <title>QR for Networkers</title>
+  <title>QR for network</title>
   <style>
     :root {
       color-scheme: light;
@@ -42,7 +42,7 @@
     main.shell { padding-bottom: 48px; }
     .hero { position: relative; isolation: isolate; overflow: hidden; padding: 46px 0 32px; }
     .hero::before { content: ""; display: block; width: 48px; height: 4px; border-radius: 4px; background: var(--gradient); margin-bottom: 15px; }
-    .hero h1 { margin: 0; font-size: clamp(2.6rem, 5.5vw, 4rem); line-height: 1.12; letter-spacing: -.075em; font-weight: 820; }
+    .hero h1 { margin: 0; font-size: clamp(2.35rem, 5.5vw, 4rem); line-height: 1.12; letter-spacing: -.065em; font-weight: 820; }
     .hero h1 span { color: var(--strong); background: linear-gradient(105deg, #3888eb, var(--strong) 45%, var(--indigo)); background-clip: text; -webkit-text-fill-color: transparent; }
     .hero p { margin: 12px 0 0; color: var(--body); font-size: 1rem; line-height: 1.65; letter-spacing: -.025em; }
     .hero-art {
@@ -91,6 +91,20 @@
     .switch:checked { background: #356de0; }
     .switch:checked::after { transform: translateX(16px); }
     .switch:focus-visible { outline: none; }
+    .variation {
+      display: grid; gap: 8px; margin-top: 2px; padding: 10px 11px 8px;
+      border: 1px solid var(--line); border-radius: 13px; background: #F8FAFE;
+    }
+    .variation-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .variation-head label { color: var(--ink); font-size: .8rem; font-weight: 730; }
+    .variation-value { margin-left: 3px; color: var(--muted); font-size: .72rem; font-variant-numeric: tabular-nums; }
+    .shuffle {
+      padding: 5px 8px; border: 1px solid #cbd8ee; border-radius: 8px; background: white;
+      color: #254e9a; font-size: .74rem; font-weight: 730; white-space: nowrap;
+    }
+    .shuffle:hover { background: #e9f1ff; }
+    .shuffle:disabled { color: #6b7489; background: #f0f3f8; cursor: default; }
+    .variation input { width: 100%; height: 17px; margin: 0; accent-color: #356de0; cursor: pointer; }
 
     .palette { gap: 11px; }
     .palette-choices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
@@ -127,7 +141,7 @@
     .swatch { min-width: 0; text-align: center; color: var(--muted); font: 620 .67rem/1.1 "IBM Plex Mono", ui-monospace, Menlo, monospace; }
     .swatch::before { content: ""; display: block; height: 12px; margin-bottom: 6px; border-radius: 8px; background: var(--swatch); }
 
-    .preview { display: flex; flex-direction: column; padding: 23px; }
+    .preview { display: flex; flex-direction: column; align-self: start; position: sticky; top: 20px; padding: 23px; }
     .preview-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 1px 14px; }
     .size-label {
       padding: 5px 9px; border-radius: 7px; background: #f0f5fe; color: #465878;
@@ -178,6 +192,7 @@
       .hero-art { width: 65%; opacity: .65; right: -16%; }
       .card { border-radius: 19px; }
       .settings, .preview { padding: 18px; }
+      .preview { position: static; }
       .stage { min-height: 0; }
       textarea { font-size: 1rem; }
     }
@@ -206,7 +221,7 @@
   <main class="shell">
     <section class="hero" aria-labelledby="page-title">
       <canvas class="hero-art" id="hero-art" width="1040" height="420" aria-hidden="true"></canvas>
-      <h1 id="page-title">네트워크 <span>QR</span></h1>
+      <h1 id="page-title">QR for <span>network</span></h1>
       <p>상하좌우와 대각선 이웃을 연결한 QR 코드를 만드세요.</p>
     </section>
 
@@ -235,6 +250,16 @@
             <span><strong>대각선 인접</strong><small>모서리를 맞댄 이웃</small></span>
             <input class="switch" type="checkbox" role="switch" id="diagonal" checked>
           </label>
+          <div class="variation">
+            <div class="variation-head">
+              <div>
+                <label for="variation">무작위성</label>
+                <output class="variation-value" for="variation" id="variation-value">70%</output>
+              </div>
+              <button class="shuffle" id="shuffle" type="button">다시 섞기</button>
+            </div>
+            <input type="range" id="variation" min="0" max="100" value="70">
+          </div>
         </fieldset>
 
         <fieldset class="palette">
@@ -2632,6 +2657,9 @@ var qrcode = function() {
       const openLink = document.getElementById('open-link');
       const axisToggle = document.getElementById('axis');
       const diagonalToggle = document.getElementById('diagonal');
+      const variationInput = document.getElementById('variation');
+      const variationValue = document.getElementById('variation-value');
+      const shuffle = document.getElementById('shuffle');
       const paletteChoices = document.getElementById('palette-choices');
       const customPalette = document.getElementById('custom-palette');
       const customStatus = document.getElementById('custom-status');
@@ -2651,8 +2679,10 @@ var qrcode = function() {
       qrcode.stringToBytes = value => byteEncoder.encode(value);
 
       let selectedPalette = palettes[0];
+      let layoutSeed = 0;
       let current = null;
       let updateTimer;
+      let redrawFrame;
 
       function rgbChannels(hex) {
         const value = Number.parseInt(hex.slice(1), 16);
@@ -2832,7 +2862,7 @@ var qrcode = function() {
             }
           }
         }
-        return { size, finders, alignments, fixed, points: layoutNodes(size, nodes) };
+        return { size, finders, alignments, fixed, nodes };
       }
 
       function addDot(path, x, y, radius) {
@@ -2846,7 +2876,8 @@ var qrcode = function() {
         return ((mixed ^ (mixed >>> 15)) >>> 0) / 4294967296;
       }
 
-      function layoutNodes(size, nodes) {
+      function layoutNodes(size, nodes, variation, layoutOffset) {
+        const spread = Math.min(1, variation * 1.5);
         return Array.from(nodes, (active, index) => {
           if (!active) return null;
           const x = index % size;
@@ -2859,20 +2890,100 @@ var qrcode = function() {
             }
           }
 
-          const seed = (index + 1) * 31 + size * 137;
-          const radius = .307 + .081 * randomUnit(seed) ** 1.56 + .047 * degree / 8;
+          const seed = (index + 1) * 31 + size * 137 + layoutOffset;
+          const irregularRadius = .307 + .081 * randomUnit(seed) ** 1.56 + .047 * degree / 8;
+          const radius = .365 + (irregularRadius - .365) * spread;
           const angle = randomUnit(seed + 1) * Math.PI * 2;
           // Keep the sampling center inside the dot, and the dot inside its dark module.
           const limit = Math.min(radius - .13, .49 - radius);
-          const distance = limit * (.52 + .48 * randomUnit(seed + 2));
+          const distance = limit * (.52 + .48 * randomUnit(seed + 2)) * spread;
           return {
             x: x + .5 + Math.cos(angle) * distance,
             y: y + .5 + Math.sin(angle) * distance,
             radius,
             // A few highly connected nodes have a soft ring like the reference network.
-            ring: degree >= 4 && randomUnit(seed + 3) > .71
+            ring: degree >= 4 && randomUnit(seed + 3) > 1 - .29 * spread
           };
         });
+      }
+
+      function neighborLinks(size, points, withAxis, withDiagonal, variation, layoutOffset) {
+        const candidates = [];
+        const directions = [];
+        if (withAxis) directions.push([1, 0], [0, 1]);
+        if (withDiagonal) directions.push([1, 1], [-1, 1]);
+        points.forEach((point, from) => {
+          if (!point) return;
+          const x = from % size;
+          const y = Math.floor(from / size);
+          for (const [dx, dy] of directions) {
+            const toX = x + dx;
+            const toY = y + dy;
+            if (toX < 0 || toX >= size || toY >= size) continue;
+            const to = toY * size + toX;
+            if (!points[to]) continue;
+            const diagonal = dx !== 0 && dy !== 0;
+            const cell = diagonal ? y * (size - 1) + Math.min(x, toX) : -1;
+            const weight = randomUnit((from + 1) * 409 + to * 17 + layoutOffset);
+            const priority = (diagonal ? .48 : .59) * (1 - variation) + weight * variation;
+            candidates.push({ from, to, diagonal, cell, weight, priority });
+          }
+        });
+        return candidates;
+      }
+
+      function selectLinks(candidates, pointCount, variation) {
+        candidates.sort((first, second) => second.priority - first.priority);
+        const parents = Int32Array.from({ length: pointCount }, (_, index) => index);
+        const degrees = new Uint8Array(pointCount);
+        const cells = new Set();
+        const selected = new Set();
+
+        function root(index) {
+          while (parents[index] !== index) {
+            parents[index] = parents[parents[index]];
+            index = parents[index];
+          }
+          return index;
+        }
+
+        function crosses(link) {
+          return link.diagonal && cells.has(link.cell);
+        }
+
+        function add(link) {
+          selected.add(link);
+          degrees[link.from]++;
+          degrees[link.to]++;
+          if (link.diagonal) cells.add(link.cell);
+        }
+
+        function bridge(link) {
+          const from = root(link.from);
+          const to = root(link.to);
+          if (from === to) return;
+          parents[to] = from;
+          add(link);
+        }
+
+        // Keep each candidate component connected. Defer crossing diagonals until
+        // the other links have had a chance to join their endpoints.
+        const deferred = [];
+        for (const link of candidates) {
+          if (crosses(link)) deferred.push(link);
+          else bridge(link);
+        }
+        deferred.forEach(bridge);
+
+        const target = Math.round(candidates.length * (1 - .5 * variation));
+        const degreeLimit = Math.round(8 - 4 * variation);
+        for (const link of candidates) {
+          if (selected.size >= target) break;
+          if (selected.has(link) || crosses(link) ||
+              degrees[link.from] >= degreeLimit || degrees[link.to] >= degreeLimit) continue;
+          add(link);
+        }
+        return selected;
       }
 
       const circleControl = .5522847498;
@@ -2908,8 +3019,12 @@ var qrcode = function() {
         ];
       }
 
-      function buildScene(graph, palette, withAxis, withDiagonal) {
-        const { size, finders, alignments, fixed, points } = graph;
+      function buildScene(graph, palette, { withAxis, withDiagonal, variation, seed }) {
+        const { size, finders, alignments, fixed } = graph;
+        const layoutOffset = Math.imul(seed, 0x9e3779b1);
+        const points = layoutNodes(size, graph.nodes, variation, layoutOffset);
+        const candidates = neighborLinks(size, points, withAxis, withDiagonal, variation, layoutOffset);
+        const links = selectLinks(candidates, points.length, variation);
         const stops = palette.stops.map(rgbChannels);
         const darkInk = rgbChannels(ink);
         const nodeStops = palette.id === 'custom'
@@ -2930,17 +3045,16 @@ var qrcode = function() {
           return mixColor(ramp[index], ramp[index + 1], position - index);
         }
 
-        function connect(from, toX, toY, output, diagonal, index) {
-          if (toX < 0 || toX >= size || toY >= size) return;
-          const neighborIndex = toY * size + toX;
-          const to = points[neighborIndex];
-          if (!to) return;
-          const weight = randomUnit((index + 1) * 409 + neighborIndex * 17);
+        for (const link of links) {
+          const from = points[link.from];
+          const to = points[link.to];
+          const strength = .5 + (link.weight - .5) * Math.min(1, variation * 1.45);
           const linkTone = tone((from.x + to.x) * .5, (from.y + to.y) * .5);
-          output.push({
+          const layer = link.diagonal ? diagonals : axis;
+          layer.push({
             path: [['M', from.x + quietZone, from.y + quietZone], ['L', to.x + quietZone, to.y + quietZone]],
-            color: mixColor(linkTone, white, diagonal ? .48 - .27 * weight : .32 - .24 * weight),
-            width: diagonal ? .105 + .10 * weight : .135 + .12 * weight
+            color: mixColor(linkTone, white, link.diagonal ? .55 - .38 * strength : .44 - .36 * strength),
+            width: link.diagonal ? .085 + .145 * strength : .105 + .17 * strength
           });
         }
 
@@ -2958,15 +3072,6 @@ var qrcode = function() {
             rings.push({ path: circlePath(gx, gy, rim), color: mixColor(base, white, .74) });
           }
           nodes.push({ path: circlePath(gx, gy, radius), color: tone(x, y, nodeStops) });
-
-          if (withAxis) {
-            connect(point, column + 1, row, axis, false, index);
-            connect(point, column, row + 1, axis, false, index);
-          }
-          if (withDiagonal) {
-            connect(point, column + 1, row + 1, diagonals, true, index);
-            connect(point, column - 1, row + 1, diagonals, true, index);
-          }
         });
 
         function pattern(x, y, width, corners) {
@@ -3030,7 +3135,7 @@ var qrcode = function() {
         const svg = [
           '<?xml version="1.0" encoding="UTF-8"?>',
           `<svg xmlns="http://www.w3.org/2000/svg" width="${exportSize}" height="${exportSize}" viewBox="0 0 ${side} ${side}">`,
-          '<title>Network QR</title>'
+          '<title>QR for network</title>'
         ];
         for (const { name, shapes } of layers) {
           svg.push(`<g aria-label="${name}">`);
@@ -3147,6 +3252,7 @@ var qrcode = function() {
 
       function updateQr() {
         window.clearTimeout(updateTimer);
+        window.cancelAnimationFrame(redrawFrame);
         const raw = urlInput.value.trim();
         if (!raw) {
           clearQr();
@@ -3172,7 +3278,12 @@ var qrcode = function() {
           return;
         }
 
-        const scene = buildScene(graph, selectedPalette, axisToggle.checked, diagonalToggle.checked);
+        const scene = buildScene(graph, selectedPalette, {
+          withAxis: axisToggle.checked,
+          withDiagonal: diagonalToggle.checked,
+          variation: Number(variationInput.value) / 100,
+          seed: layoutSeed
+        });
         current = { url: url.href, graph, scene };
         drawScene(preview, scene);
         preview.hidden = false;
@@ -3192,6 +3303,20 @@ var qrcode = function() {
         fileSize.textContent = formats[format].detail;
         download.setAttribute('aria-label', `${format.toUpperCase()} 다운로드`);
         downloadStatus.hidden = true;
+      }
+
+      function updateLayout() {
+        variationValue.value = `${variationInput.value}%`;
+        shuffle.disabled = Number(variationInput.value) === 0;
+        download.disabled = true;
+        window.cancelAnimationFrame(redrawFrame);
+        redrawFrame = window.requestAnimationFrame(updateQr);
+      }
+
+      function shuffleLayout() {
+        const [randomSeed] = crypto.getRandomValues(new Uint32Array(1));
+        layoutSeed = randomSeed === layoutSeed ? (randomSeed + 1) >>> 0 : randomSeed;
+        updateLayout();
       }
 
       async function downloadQr() {
@@ -3286,6 +3411,8 @@ var qrcode = function() {
       });
       axisToggle.addEventListener('change', updateQr);
       diagonalToggle.addEventListener('change', updateQr);
+      variationInput.addEventListener('input', updateLayout);
+      shuffle.addEventListener('click', shuffleLayout);
       paletteChoices.addEventListener('change', event => {
         selectedPalette = palettes.find(palette => palette.id === event.target.value);
         showPalette();
