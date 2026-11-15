@@ -3001,7 +3001,7 @@ var qrcode = function() {
         return candidates;
       }
 
-      function selectLinks(candidates, pointCount, variation) {
+      function selectLinks(candidates, pointCount) {
         candidates.sort((first, second) => second.weight - first.weight);
         const parents = Int32Array.from({ length: pointCount }, (_, index) => index);
         const degrees = new Uint8Array(pointCount);
@@ -3055,9 +3055,7 @@ var qrcode = function() {
           add(link);
           extras.push(link);
         }
-        // A larger slider value takes a longer prefix of the same random links.
-        const addedCount = Math.round(extras.length * variation);
-        return { links: backbone.concat(extras.slice(0, addedCount)), addedCount };
+        return { links: backbone.concat(extras), backboneCount: backbone.length };
       }
 
       function uncrossedPool(candidates) {
@@ -3074,9 +3072,9 @@ var qrcode = function() {
         return candidates.filter(link => !link.diagonal || diagonalByCell.get(link.cell) === link);
       }
 
-      function sampleLinks(candidates, pointCount, { model, variation, seed, probability, count, crossings }) {
+      function sampleLinks(candidates, pointCount, { model, seed, probability, count, crossings }) {
         if (model === 'connected') {
-          return { ...selectLinks(candidates, pointCount, variation), candidateCount: candidates.length };
+          return { ...selectLinks(candidates, pointCount), candidateCount: candidates.length };
         }
 
         const pool = crossings ? candidates.slice() : uncrossedPool(candidates);
@@ -3129,12 +3127,12 @@ var qrcode = function() {
         ];
       }
 
-      function buildScene(graph, palette, { withAxis, withDiagonal, variation, sampling }) {
+      function prepareScene(graph, palette, { withAxis, withDiagonal, sampling }) {
         const { size, finders, alignments, fixed } = graph;
         const points = layoutNodes(size, graph.nodes);
         const edgeOffset = Math.imul(sampling.seed, 0x9e3779b1);
         const candidates = neighborLinks(size, points, withAxis, withDiagonal, edgeOffset);
-        const { links, candidateCount, addedCount } = sampleLinks(candidates, points.length, { ...sampling, variation });
+        const { links, candidateCount, backboneCount } = sampleLinks(candidates, points.length, sampling);
         const stops = palette.stops.map(rgbChannels);
         const darkInk = rgbChannels(ink);
         const nodeStops = palette.id === 'custom'
@@ -3155,13 +3153,14 @@ var qrcode = function() {
           return mixColor(ramp[index], ramp[index + 1], position - index);
         }
 
-        for (const link of links) {
+        for (const [linkIndex, link] of links.entries()) {
           const from = points[link.from];
           const to = points[link.to];
           const strength = link.weight;
           const linkTone = tone((from.x + to.x) * .5, (from.y + to.y) * .5);
           const layer = link.diagonal ? diagonals : axis;
           layer.push({
+            linkIndex,
             path: [['M', from.x + quietZone, from.y + quietZone], ['L', to.x + quietZone, to.y + quietZone]],
             color: mixColor(linkTone, white, link.diagonal ? .55 - .38 * strength : .44 - .36 * strength),
             width: link.diagonal ? .085 + .145 * strength : .105 + .17 * strength
@@ -3201,12 +3200,29 @@ var qrcode = function() {
         const layers = [
           { name: 'Background', shapes: [{ path: squarePath(0, 0, side), color: white }] },
           { name: 'Node halos', shapes: rings },
-          { name: 'Diagonal links', shapes: diagonals },
-          { name: 'Nearest-neighbor links', shapes: axis },
+          { name: 'Diagonal links', shapes: diagonals, isLinkLayer: true },
+          { name: 'Nearest-neighbor links', shapes: axis, isLinkLayer: true },
           { name: 'Nodes', shapes: nodes },
           { name: 'QR patterns', shapes: patterns }
         ].filter(layer => layer.shapes.length);
-        return { side, layers, candidateCount, addedCount, linkCount: links.length };
+        return { side, layers, candidateCount, backboneCount, totalLinks: links.length };
+      }
+
+      function visibleLinkCounts({ candidateCount, backboneCount, totalLinks }) {
+        if (backboneCount === undefined) return { candidateCount, linkCount: totalLinks };
+        const variation = Number(variationInput.value) / 100;
+        const addedCount = Math.round((totalLinks - backboneCount) * variation);
+        return { candidateCount, addedCount, linkCount: backboneCount + addedCount };
+      }
+
+      function sceneWithVisibleLinks(plan, counts) {
+        const { linkCount } = counts;
+        const layers = plan.totalLinks === linkCount ? plan.layers : plan.layers.map(layer => {
+          if (!layer.isLinkLayer) return layer;
+          const shapes = layer.shapes.filter(shape => shape.linkIndex < linkCount);
+          return { ...layer, shapes };
+        }).filter(layer => layer.shapes.length);
+        return { side: plan.side, layers, ...counts };
       }
 
       function number(value) {
@@ -3221,6 +3237,8 @@ var qrcode = function() {
         return '#' + channels.map(channel => channel.toString(16).padStart(2, '0')).join('');
       }
 
+      const canvasPaint = new WeakMap();
+
       function drawScene(canvas, { side, layers }) {
         const context = canvas.getContext('2d');
         const scale = canvas.width / side;
@@ -3228,13 +3246,22 @@ var qrcode = function() {
         context.lineCap = 'round';
         for (const { shapes } of layers) {
           for (const shape of shapes) {
-            const path = new Path2D(svgPath(shape.path));
-            if (shape.width) {
-              context.strokeStyle = hexColor(shape.color);
-              context.lineWidth = Number(number(shape.width));
+            let paint = canvasPaint.get(shape);
+            if (!paint) {
+              paint = {
+                path: new Path2D(svgPath(shape.path)),
+                color: hexColor(shape.color),
+                width: shape.width && Number(number(shape.width))
+              };
+              canvasPaint.set(shape, paint);
+            }
+            const { path, color, width } = paint;
+            if (width) {
+              context.strokeStyle = color;
+              context.lineWidth = width;
               context.stroke(path);
             } else {
-              context.fillStyle = hexColor(shape.color);
+              context.fillStyle = color;
               context.fill(path);
             }
           }
@@ -3362,9 +3389,24 @@ var qrcode = function() {
         urlInput.setAttribute('aria-invalid', String(Boolean(message)));
       }
 
+      function linkSettings() {
+        return {
+          withAxis: axisToggle.checked,
+          withDiagonal: diagonalToggle.checked,
+          sampling: {
+            model: edgeModel.value,
+            seed: edgeSeed,
+            probability: boundedInteger(edgeProbability, 65) / 100,
+            count: requestedEdgeCount,
+            crossings: edgeCrossing.checked
+          }
+        };
+      }
+
       function updateQr() {
         window.clearTimeout(updateTimer);
         window.cancelAnimationFrame(redrawFrame);
+        redrawFrame = undefined;
         const raw = urlInput.value.trim();
         if (!raw) {
           clearQr();
@@ -3390,21 +3432,17 @@ var qrcode = function() {
           return;
         }
 
-        const scene = buildScene(graph, selectedPalette, {
-          withAxis: axisToggle.checked,
-          withDiagonal: diagonalToggle.checked,
-          variation: Number(variationInput.value) / 100,
-          sampling: {
-            model: edgeModel.value,
-            seed: edgeSeed,
-            probability: boundedInteger(edgeProbability, 65) / 100,
-            count: requestedEdgeCount,
-            crossings: edgeCrossing.checked
-          }
-        });
-        current = { url: url.href, graph, scene };
-        showEdgeState(scene);
-        drawScene(preview, scene);
+        const settings = linkSettings();
+        const settingsKey = JSON.stringify(settings);
+        const reusePlan = current?.url === url.href && current.palette === selectedPalette &&
+          current.settingsKey === settingsKey;
+        const plan = reusePlan ? current.plan : prepareScene(graph, selectedPalette, settings);
+        const counts = visibleLinkCounts(plan);
+        const repaint = !reusePlan || current.scene.linkCount !== counts.linkCount;
+        const scene = repaint ? sceneWithVisibleLinks(plan, counts) : current.scene;
+        current = { raw, url: url.href, graph, palette: selectedPalette, settingsKey, plan, scene };
+        showEdgeState(counts);
+        if (repaint) drawScene(preview, scene);
         preview.hidden = false;
         empty.hidden = true;
         gridSize.hidden = false;
@@ -3426,6 +3464,11 @@ var qrcode = function() {
 
       function updateLayout() {
         variationValue.value = `${variationInput.value}%`;
+        if (current?.raw === urlInput.value.trim() && current.palette === selectedPalette &&
+            current.settingsKey === JSON.stringify(linkSettings())) {
+          // Counters update on input; the canvas and export scene follow on the next frame.
+          showEdgeState(visibleLinkCounts(current.plan));
+        }
         download.disabled = true;
         window.cancelAnimationFrame(redrawFrame);
         redrawFrame = window.requestAnimationFrame(updateQr);
