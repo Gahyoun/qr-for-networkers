@@ -126,14 +126,14 @@
     }
     .palette-choice:has(input:focus-visible) { outline: 3px solid #3168cd; outline-offset: 2px; }
     .palette-track { height: 8px; background: var(--palette-gradient); border-radius: 6px; }
-    :is(.custom-palette, .edge-settings) { border: 1px solid var(--line); border-radius: 10px; }
+    :is(.custom-palette, .edge-settings, .center-settings) { border: 1px solid var(--line); border-radius: 10px; }
     .custom-palette[data-active] { border-color: #386fe0; background: #f6f9ff; }
-    :is(.custom-palette, .edge-settings) summary {
+    :is(.custom-palette, .edge-settings, .center-settings) summary {
       min-height: 37px; padding: 9px 11px; cursor: pointer;
       color: var(--body); font-size: .8rem; font-weight: 700;
     }
-    :is(.custom-palette, .edge-settings) summary::marker { color: #3565c4; }
-    :is(.custom-palette, .edge-settings) summary:focus-visible { border-radius: inherit; }
+    :is(.custom-palette, .edge-settings, .center-settings) summary::marker { color: #3565c4; }
+    :is(.custom-palette, .edge-settings, .center-settings) summary:focus-visible { border-radius: inherit; }
     .custom-status { float: right; color: #2959ac; font-size: .72rem; }
     .custom-editor { padding: 0 11px 11px; }
     .custom-editor label { display: block; margin-bottom: 6px; font-size: .8rem; font-weight: 730; }
@@ -155,6 +155,12 @@
     .edge-crossing input { margin: 0; accent-color: #356de0; }
     .edge-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px 9px; }
     .edge-counts { margin: 0; color: var(--muted); font-size: .73rem; line-height: 1.4; }
+    .center-settings { margin-top: 16px; }
+    .center-editor { display: grid; gap: 10px; padding: 0 11px 11px; }
+    .center-editor textarea { min-height: 55px; }
+    .center-file { display: flex; align-items: center; gap: 8px; }
+    .center-file-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .center-editor > button { justify-self: start; }
     .license-footer { margin-top: 25px; color: var(--muted); font-size: .76rem; }
     .license-footer a { text-decoration: underline; text-underline-offset: 2px; }
     .swatches { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
@@ -329,6 +335,21 @@
           </details>
           <div class="swatches" id="swatches" aria-label="Selected palette color codes"></div>
         </fieldset>
+        <details class="center-settings">
+          <summary>Center content</summary>
+          <div class="center-editor">
+            <label class="edge-field" for="center-text">Text, symbols, or emoji
+              <textarea id="center-text" rows="2" maxlength="120" placeholder="Network ✦"></textarea>
+            </label>
+            <div class="center-file">
+              <input id="center-image" type="file" accept="image/*" hidden>
+              <button class="shuffle" id="choose-center-image" type="button" aria-describedby="center-image-name center-error">Choose image</button>
+              <span class="edge-counts center-file-name" id="center-image-name">No image selected</span>
+            </div>
+            <button class="shuffle" id="remove-center-image" type="button" hidden>Remove image</button>
+            <p class="error" id="center-error" role="status" hidden></p>
+          </div>
+        </details>
       </section>
 
       <section class="card preview" aria-labelledby="preview-title">
@@ -2735,6 +2756,12 @@ var qrcode = function() {
       const customEditor = document.getElementById('custom-editor');
       const paletteInput = document.getElementById('palette-input');
       const paletteError = document.getElementById('palette-error');
+      const centerText = document.getElementById('center-text');
+      const centerImageInput = document.getElementById('center-image');
+      const chooseCenterImage = document.getElementById('choose-center-image');
+      const centerImageName = document.getElementById('center-image-name');
+      const removeCenterImage = document.getElementById('remove-center-image');
+      const centerError = document.getElementById('center-error');
       const swatches = document.getElementById('swatches');
       const stage = document.getElementById('stage');
       const preview = document.getElementById('qr');
@@ -2750,6 +2777,9 @@ var qrcode = function() {
       let selectedPalette = palettes[0];
       let edgeSeed = 0;
       let requestedEdgeCount = edgeSample.valueAsNumber;
+      let centerImage = null;
+      let centerArtwork = null;
+      let imageRequest = 0;
       let current = null;
       let updateTimer;
       let redrawFrame;
@@ -3127,6 +3157,140 @@ var qrcode = function() {
         ];
       }
 
+      function placeCenterArtwork(graph, bitmap) {
+        if (!bitmap) return null;
+        const { size, fixed, finders, alignments } = graph;
+        const protectedAreas = [
+          ...fixed.map(([x, y]) => [x, y, 1]),
+          ...finders.map(([x, y]) => [x, y, 7]),
+          ...alignments.map(([x, y]) => [x, y, 5])
+        ];
+        const centers = alignmentCenters(size);
+        const spacing = centers.reduce((gap, coordinate, index) =>
+          index === 0 ? gap : Math.min(gap, coordinate - centers[index - 1]), Infinity);
+        // Leave room for five-module alignment marks and the clearance on both sides.
+        const side = Math.min(18, Math.floor(size * .19), spacing - 6);
+        const start = (size - side) / 2;
+        const reach = Math.ceil(size * .23);
+        let nearest = null;
+        let nearestDistance = Infinity;
+        for (let dy = -reach; dy <= reach; dy++) {
+          for (let dx = -reach; dx <= reach; dx++) {
+            const distance = dx * dx + dy * dy;
+            if (distance >= nearestDistance) continue;
+            const x = start + dx;
+            const y = start + dy;
+            if (x < 0 || y < 0 || x + side > size || y + side > size) continue;
+            const margin = .25;
+            const blocksPattern = protectedAreas.some(([px, py, width]) =>
+              x < px + width + margin && x + side > px - margin &&
+              y < py + width + margin && y + side > py - margin);
+            if (blocksPattern) continue;
+            nearest = { x: x + quietZone, y: y + quietZone };
+            nearestDistance = distance;
+          }
+        }
+        if (!nearest) return null;
+        const padding = .5;
+        return {
+          x: nearest.x + padding,
+          y: nearest.y + padding,
+          side: side - 2 * padding,
+          bitmap,
+          backdrop: squarePath(nearest.x, nearest.y, side, .76)
+        };
+      }
+
+      function wrapArtworkText(context, text, width) {
+        const lines = [];
+        for (const paragraph of text.split(/\r?\n/)) {
+          let line = '';
+          for (const word of paragraph.trim().split(/\s+/)) {
+            const next = line ? line + ' ' + word : word;
+            if (line && context.measureText(next).width > width) {
+              lines.push(line);
+              line = word;
+            } else {
+              line = next;
+            }
+          }
+          if (line) lines.push(line);
+        }
+        return lines;
+      }
+
+      function paintArtworkText(context, text, width, top, height) {
+        let fontSize = Math.min(116, Math.floor(height * .74));
+        let lines;
+        for (; fontSize > 10; fontSize -= 2) {
+          context.font = `700 ${fontSize}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+          lines = wrapArtworkText(context, text, width);
+          if (lines.length * fontSize * 1.13 <= height &&
+              lines.every(line => context.measureText(line).width <= width)) break;
+        }
+        const lineHeight = Math.min(fontSize * 1.13, height / lines.length);
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillStyle = ink;
+        lines.forEach((line, index) => {
+          const y = top + height / 2 + (index - (lines.length - 1) / 2) * lineHeight;
+          context.fillText(line, width / 2 + 4, y, width);
+        });
+      }
+
+      function refreshCenterArtwork() {
+        const text = centerText.value.trim();
+        centerArtwork = null;
+        if (text || centerImage) {
+          const bitmap = document.createElement('canvas');
+          bitmap.width = bitmap.height = 256;
+          const context = bitmap.getContext('2d');
+          context.fillStyle = '#fff';
+          context.fillRect(0, 0, bitmap.width, bitmap.height);
+
+          const imageHeight = text ? 151 : bitmap.height;
+          if (centerImage) {
+            const fit = Math.min((bitmap.width - 12) / centerImage.naturalWidth,
+              (imageHeight - 12) / centerImage.naturalHeight);
+            const width = centerImage.naturalWidth * fit;
+            const height = centerImage.naturalHeight * fit;
+            context.drawImage(centerImage, (bitmap.width - width) / 2, (imageHeight - height) / 2, width, height);
+          }
+          if (text) {
+            const top = centerImage ? imageHeight : 0;
+            paintArtworkText(context, text, bitmap.width - 8, top, bitmap.height - top);
+          }
+          centerArtwork = bitmap;
+        }
+        updateLayout();
+      }
+
+      async function loadCenterImage() {
+        const request = ++imageRequest;
+        const file = centerImageInput.files[0];
+        let image = null;
+        if (file) {
+          const localUrl = URL.createObjectURL(file);
+          try {
+            image = new Image();
+            image.src = localUrl;
+            await image.decode();
+          } catch {
+            image = null;
+          } finally {
+            URL.revokeObjectURL(localUrl);
+          }
+        }
+        if (request !== imageRequest) return;
+        centerImage = image;
+        centerError.hidden = !file || Boolean(image);
+        centerError.textContent = 'Could not open this image. Try a different image file.';
+        if (file && !image) centerImageInput.value = '';
+        centerImageName.textContent = image ? file.name : 'No image selected';
+        removeCenterImage.hidden = !image;
+        refreshCenterArtwork();
+      }
+
       function prepareScene(graph, palette, { withAxis, withDiagonal, sampling }) {
         const { size, finders, alignments, fixed } = graph;
         const points = layoutNodes(size, graph.nodes);
@@ -3158,12 +3322,15 @@ var qrcode = function() {
           const to = points[link.to];
           const strength = link.weight;
           const linkTone = tone((from.x + to.x) * .5, (from.y + to.y) * .5);
+          const added = backboneCount !== undefined && linkIndex >= backboneCount;
           const layer = link.diagonal ? diagonals : axis;
           layer.push({
             linkIndex,
             path: [['M', from.x + quietZone, from.y + quietZone], ['L', to.x + quietZone, to.y + quietZone]],
-            color: mixColor(linkTone, white, link.diagonal ? .55 - .38 * strength : .44 - .36 * strength),
-            width: link.diagonal ? .085 + .145 * strength : .105 + .17 * strength
+            color: added ? mixColor(linkTone, darkInk, .23) :
+              mixColor(linkTone, white, link.diagonal ? .55 - .38 * strength : .44 - .36 * strength),
+            width: added ? .30 + .06 * strength :
+              link.diagonal ? .085 + .145 * strength : .105 + .17 * strength
           });
         }
 
@@ -3215,14 +3382,18 @@ var qrcode = function() {
         return { candidateCount, addedCount, linkCount: backboneCount + addedCount };
       }
 
-      function sceneWithVisibleLinks(plan, counts) {
+      function sceneWithVisibleLinks(plan, counts, center) {
         const { linkCount } = counts;
         const layers = plan.totalLinks === linkCount ? plan.layers : plan.layers.map(layer => {
           if (!layer.isLinkLayer) return layer;
           const shapes = layer.shapes.filter(shape => shape.linkIndex < linkCount);
           return { ...layer, shapes };
         }).filter(layer => layer.shapes.length);
-        return { side: plan.side, layers, ...counts };
+        if (center) {
+          const backdrop = { name: 'Center backdrop', shapes: [{ path: center.backdrop, color: white }] };
+          return { side: plan.side, layers: [...layers, backdrop], center, ...counts };
+        }
+        return { side: plan.side, layers, center, ...counts };
       }
 
       function number(value) {
@@ -3239,7 +3410,7 @@ var qrcode = function() {
 
       const canvasPaint = new WeakMap();
 
-      function drawScene(canvas, { side, layers }) {
+      function drawScene(canvas, { side, layers, center }) {
         const context = canvas.getContext('2d');
         const scale = canvas.width / side;
         context.setTransform(scale, 0, 0, scale, 0, 0);
@@ -3266,12 +3437,13 @@ var qrcode = function() {
             }
           }
         }
+        if (center) context.drawImage(center.bitmap, center.x, center.y, center.side, center.side);
       }
 
-      function exportSvg({ side, layers }) {
+      function exportSvg({ side, layers, center }) {
         const svg = [
           '<?xml version="1.0" encoding="UTF-8"?>',
-          `<svg xmlns="http://www.w3.org/2000/svg" width="${exportSize}" height="${exportSize}" viewBox="0 0 ${side} ${side}">`,
+          `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${exportSize}" height="${exportSize}" viewBox="0 0 ${side} ${side}">`,
           '<title>QR for networker</title>'
         ];
         for (const { name, shapes } of layers) {
@@ -3285,12 +3457,32 @@ var qrcode = function() {
           }
           svg.push('</g>');
         }
+        if (center) {
+          const { x, y, side: width, bitmap } = center;
+          svg.push('<g id="center-content" aria-label="Center content">',
+            `<image x="${number(x)}" y="${number(y)}" width="${number(width)}" height="${number(width)}" xlink:href="${bitmap.toDataURL('image/png')}"/>`,
+            '</g>');
+        }
         svg.push('</svg>');
         return new Blob([svg.join('\n')], { type: 'image/svg+xml' });
       }
 
       function unitRgb(channels) {
         return channels.map(channel => (channel / 255).toFixed(5)).join(' ');
+      }
+
+      function bitmapHexRows(bitmap) {
+        const { width, height } = bitmap;
+        const { data } = bitmap.getContext('2d').getImageData(0, 0, width, height);
+        const hex = Array.from({ length: 256 }, (_, value) => value.toString(16).padStart(2, '0'));
+        return Array.from({ length: height }, (_, y) => {
+          let row = '';
+          for (let x = 0; x < width; x++) {
+            const pixel = (y * width + x) * 4;
+            row += hex[data[pixel]] + hex[data[pixel + 1]] + hex[data[pixel + 2]];
+          }
+          return row;
+        });
       }
 
       const pdfOperators = { M: 'm', L: 'l', C: 'c', Z: 'h' };
@@ -3303,7 +3495,7 @@ var qrcode = function() {
         }).join('\n');
       }
 
-      function exportPdf({ side, layers }) {
+      function exportPdf({ side, layers, center }) {
         const scale = (vectorSize / side).toFixed(8);
         const drawing = [`q\n${scale} 0 0 -${scale} 0 ${vectorSize} cm\n1 J`];
         for (const { shapes } of layers) {
@@ -3312,14 +3504,24 @@ var qrcode = function() {
             drawing.push(paint, vectorPath(path, pdfOperators), width ? 'S' : 'f');
           }
         }
+        if (center) {
+          const width = number(center.side);
+          drawing.push(`q\n${width} 0 0 -${width} ${number(center.x)} ${number(center.y + center.side)} cm\n/CenterArt Do\nQ`);
+        }
         const stream = [...drawing, 'Q', ''].join('\n');
         // All entries use ASCII so JS string offsets equal the PDF byte offsets.
+        const resources = center ? '<< /XObject << /CenterArt 5 0 R >> >>' : '<< >>';
         const objects = [
           '<< /Type /Catalog /Pages 2 0 R >>',
           '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-          `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${vectorSize} ${vectorSize}] /Resources << >> /Contents 4 0 R >>`,
+          `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${vectorSize} ${vectorSize}] /Resources ${resources} /Contents 4 0 R >>`,
           `<< /Length ${stream.length} >>\nstream\n${stream}endstream`
         ];
+        if (center) {
+          const { width, height } = center.bitmap;
+          const pixels = bitmapHexRows(center.bitmap).join('\n') + '>\n';
+          objects.push(`<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length ${pixels.length} >>\nstream\n${pixels}endstream`);
+        }
         let pdf = '%PDF-1.4\n';
         const offsets = ['0000000000 65535 f \n'];
         objects.forEach((object, index) => {
@@ -3331,7 +3533,7 @@ var qrcode = function() {
         return new Blob([pdf], { type: 'application/pdf' });
       }
 
-      function exportIllustrator({ side, layers }) {
+      function exportIllustrator({ side, layers, center }) {
         const scale = vectorSize / side;
         const coordinates = (value, index) => (index % 2 ? side - value : value) * scale;
         // Illustrator 7 EPS drawing operators, with a self-contained PostScript prolog.
@@ -3340,14 +3542,35 @@ var qrcode = function() {
           `%%BoundingBox: 0 0 ${vectorSize} ${vectorSize}`, '%%LanguageLevel: 2',
           '%%Pages: 1', '%AI5_FileFormat 3', '%AI3_ColorUsage: Color',
           `%AI5_ArtSize: ${vectorSize} ${vectorSize}`, '%AI5_RulerUnits: 2',
-          `%AI5_NumLayers: ${layers.length}`, '%%EndComments', '%%BeginProlog',
+          `%AI5_NumLayers: ${layers.length + Number(Boolean(center))}`, '%%EndComments', '%%BeginProlog',
           '/m /moveto load def /L /lineto load def /C /curveto load def',
           '/f { closepath fill } bind def /S /stroke load def',
           '/Xa /setrgbcolor load def /XA /setrgbcolor load def',
           '/w /setlinewidth load def /J /setlinecap load def',
-          '/Lb { 10 { pop } repeat } bind def /Ln { pop } bind def /LB {} bind def',
-          '%%EndProlog', '%%Page: 1 1', '1 J'
+          '/Lb { 10 { pop } repeat } bind def /Ln { pop } bind def /LB {} bind def'
         ];
+        if (center) {
+          ai.push(
+            '/hexDigit { dup 97 ge { 87 sub } { 48 sub } ifelse } bind def',
+            '/XI {',
+            '  16 dict begin',
+            '  5 { pop } repeat /depth exch def /columns exch def /rows exch def',
+            '  4 { pop } repeat /projection exch def',
+            '  /row columns 3 mul string def /encoded columns 6 mul 1 add string def',
+            '  gsave projection concat',
+            '  columns rows depth [1 0 0 -1 0 rows] {',
+            '    currentfile encoded readline pop /scanline exch def',
+            '    0 1 row length 1 sub {',
+            '      /i exch def row i',
+            '      scanline i 2 mul 1 add get hexDigit 16 mul',
+            '      scanline i 2 mul 2 add get hexDigit add put',
+            '    } for row',
+            '  } false 3 colorimage',
+            '  grestore end',
+            '} bind def'
+          );
+        }
+        ai.push('%%EndProlog', '%%Page: 1 1', '1 J');
         for (const { name, shapes } of layers) {
           ai.push('%AI5_BeginLayer', '1 1 1 1 0 0 0 0 0 0 Lb', `(${name}) Ln`);
           for (const { path, color, width } of shapes) {
@@ -3355,6 +3578,16 @@ var qrcode = function() {
             ai.push(paint, vectorPath(path, illustratorOperators, coordinates), width ? 'S' : 'f');
           }
           ai.push('LB', '%AI5_EndLayer');
+        }
+        if (center) {
+          const { x, y, side: imageSide, bitmap } = center;
+          const factor = (imageSide * scale / bitmap.width).toFixed(8);
+          const location = `${number(x * scale)} ${number((side - y - imageSide) * scale)}`;
+          ai.push('%AI5_BeginLayer', '1 1 1 1 0 0 0 0 0 0 Lb', '(Center content) Ln',
+            '%AI5_BeginRaster',
+            `[ ${factor} 0 0 ${factor} ${location} ] 0 0 ${bitmap.width} ${bitmap.height} ${bitmap.height} ${bitmap.width} 8 3 0 0 0 0 XI`,
+            ...bitmapHexRows(bitmap).map(row => '%' + row),
+            '%AI5_EndRaster', 'LB', '%AI5_EndLayer');
         }
         ai.push('showpage', '%%Trailer', '%%EOF', '');
         return new Blob([ai.join('\n')], { type: 'application/octet-stream' });
@@ -3438,9 +3671,11 @@ var qrcode = function() {
           current.settingsKey === settingsKey;
         const plan = reusePlan ? current.plan : prepareScene(graph, selectedPalette, settings);
         const counts = visibleLinkCounts(plan);
-        const repaint = !reusePlan || current.scene.linkCount !== counts.linkCount;
-        const scene = repaint ? sceneWithVisibleLinks(plan, counts) : current.scene;
-        current = { raw, url: url.href, graph, palette: selectedPalette, settingsKey, plan, scene };
+        const center = reusePlan && current.artwork === centerArtwork
+          ? current.scene.center : placeCenterArtwork(graph, centerArtwork);
+        const repaint = !reusePlan || current.scene.linkCount !== counts.linkCount || current.scene.center !== center;
+        const scene = repaint ? sceneWithVisibleLinks(plan, counts, center) : current.scene;
+        current = { raw, url: url.href, graph, palette: selectedPalette, settingsKey, plan, scene, artwork: centerArtwork };
         showEdgeState(counts);
         if (repaint) drawScene(preview, scene);
         preview.hidden = false;
@@ -3465,9 +3700,15 @@ var qrcode = function() {
       function updateLayout() {
         variationValue.value = `${variationInput.value}%`;
         if (current?.raw === urlInput.value.trim() && current.palette === selectedPalette &&
-            current.settingsKey === JSON.stringify(linkSettings())) {
-          // Counters update on input; the canvas and export scene follow on the next frame.
-          showEdgeState(visibleLinkCounts(current.plan));
+            current.artwork === centerArtwork && current.settingsKey === JSON.stringify(linkSettings())) {
+          const counts = visibleLinkCounts(current.plan);
+          showEdgeState(counts);
+          if (current.scene.linkCount !== counts.linkCount) {
+            current.scene = sceneWithVisibleLinks(current.plan, counts, current.scene.center);
+            drawScene(preview, current.scene);
+          }
+          download.disabled = false;
+          return;
         }
         download.disabled = true;
         window.cancelAnimationFrame(redrawFrame);
@@ -3639,6 +3880,13 @@ var qrcode = function() {
       });
       paletteInput.addEventListener('input', () => showPaletteError());
       customEditor.addEventListener('submit', applyCustomPalette);
+      centerText.addEventListener('input', refreshCenterArtwork);
+      chooseCenterImage.addEventListener('click', () => centerImageInput.click());
+      centerImageInput.addEventListener('change', loadCenterImage);
+      removeCenterImage.addEventListener('click', () => {
+        centerImageInput.value = '';
+        loadCenterImage();
+      });
       exportFormat.addEventListener('change', showFormat);
       download.addEventListener('click', downloadQr);
 

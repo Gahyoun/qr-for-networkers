@@ -20,9 +20,15 @@ The candidate graph comes from the QR matrix and the active neighbor switches. W
 
 Node positions are fixed for each URL. In Connected mode, **Shuffle links** resamples the added links. In Bernoulli and Fixed count modes, **Resample links** draws a new edge set. Re-enter a link seed to reproduce the edge set for the same URL, neighbor switches, model, sampling settings, and randomness level.
 
+## Add center content
+
+Open **Center content** to type text, symbols, or emoji, choose an image from your device, or combine them. The generator places the content near the center while avoiding the QR reference patterns. Uploaded files are processed in your browser.
+
 ## Export and edit
 
 Download a 1536 × 1536 PNG, SVG, vector PDF, or legacy Illustrator AI file. The SVG contains individually editable vector paths grouped as `nodes`, `nearest-neighbor-links`, and `diagonal-links`. The background, halos, and QR reference patterns have their own groups.
+
+When you add center content, it is embedded as an image in the vector exports. The QR network remains vector artwork.
 
 In Adobe Illustrator, use **File → Open** to open the SVG. Use the **Layers** panel to select a group, or **Direct Selection** (`A`) to select an individual node or link inside a group. [Adobe's guide to object selection](https://helpx.adobe.com/illustrator/desktop/manage-objects/select-objects/object-selection-methods-and-preferences.html)
 
